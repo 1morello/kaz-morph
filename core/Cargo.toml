@@ -1,0 +1,21 @@
+[package]
+name = "kaz-morph"
+description = "Fast morphological analyzer for the Kazakh language"
+readme = "../README.md"
+keywords = ["kazakh", "nlp", "morphology", "turkic", "linguistics, kazakh-language"]
+categories = ["text-processing", "science"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["html_reports"] }
+
+[[bench]]
+name = "analyze"
+harness = false
