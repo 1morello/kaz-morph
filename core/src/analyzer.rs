@@ -2,7 +2,6 @@ use crate::lexicon::Lexicon;
 use crate::phonology;
 use crate::types::*;
 
-/// Main entry point for morphological analysis.
 pub struct Analyzer {
     lexicon: Lexicon,
 }
@@ -263,7 +262,7 @@ mod tests {
             .unwrap_or_else(|| panic!("no noun analysis for '{word}'"))
     }
 
-    // ── Bare stems ─────────────────────────────────
+    // Bare stems
 
     #[test]
     fn bare_noun() {
@@ -273,7 +272,7 @@ mod tests {
         assert_eq!(r.features.number, None);
     }
 
-    // ── Case suffixes ──────────────────────────────
+    // Case suffixes
 
     #[test]
     fn locative() {
@@ -310,7 +309,7 @@ mod tests {
         assert_eq!(r.features.case, Some(Case::Genitive));
     }
 
-    // ── Plural ─────────────────────────────────────
+    // Plural
 
     #[test]
     fn plural() {
@@ -327,7 +326,7 @@ mod tests {
         assert_eq!(r.features.case, Some(Case::Locative));
     }
 
-    // ── Possessive ─────────────────────────────────
+    // Possessive
 
     #[test]
     fn possessive_p1sg() {
@@ -338,7 +337,7 @@ mod tests {
 
     #[test]
     fn possessive_p3sg_mutation() {
-        // п → б (Yiner rule 11)
+        // п → б 
         let r = first_noun("мектебі");
         assert_eq!(r.lemma, "мектеп");
         assert_eq!(r.features.possession, Some(Possession::P3Sg));
@@ -351,17 +350,17 @@ mod tests {
         assert_eq!(r.features.possession, Some(Possession::P1Pl));
     }
 
-    // ── Consonant mutations ────────────────────────
+    // Consonant mutations
 
     #[test]
     fn mutation_q_to_gh() {
-        // қ → ғ (Yiner rule 12)
+        // қ → ғ 
         let r = first_noun("балығы");
         assert_eq!(r.lemma, "балық");
         assert_eq!(r.features.possession, Some(Possession::P3Sg));
     }
 
-    // ── Full chain: plural + possessive + case ─────
+    // Full chain: plural + possessive + case 
 
     #[test]
     fn full_chain() {
@@ -375,11 +374,134 @@ mod tests {
 
     #[test]
     fn full_chain_heart() {
-        // жүрек + тер + іміз + де (from README)
+        // жүрек + тер + іміз + де 
         let r = first_noun("жүректерімізде");
         assert_eq!(r.lemma, "жүрек");
         assert_eq!(r.features.number, Some(Number::Plural));
         assert_eq!(r.features.possession, Some(Possession::P1Pl));
+        assert_eq!(r.features.case, Some(Case::Locative));
+    }
+    // Vowel-ending stems
+
+    #[test]
+    fn vowel_stem_locative() {
+        // қала + да (not та — stem ends in vowel)
+        let r = first_noun("қалада");
+        assert_eq!(r.lemma, "қала");
+        assert_eq!(r.features.case, Some(Case::Locative));
+    }
+
+    #[test]
+    fn vowel_stem_ablative() {
+        let r = first_noun("қаладан");
+        assert_eq!(r.lemma, "қала");
+        assert_eq!(r.features.case, Some(Case::Ablative));
+    }
+
+    #[test]
+    fn vowel_stem_dative() {
+        let r = first_noun("қалаға");
+        assert_eq!(r.lemma, "қала");
+        assert_eq!(r.features.case, Some(Case::Dative));
+    }
+
+    #[test]
+    fn vowel_stem_genitive() {
+        let r = first_noun("қаланың");
+        assert_eq!(r.lemma, "қала");
+        assert_eq!(r.features.case, Some(Case::Genitive));
+    }
+
+    #[test]
+    fn vowel_stem_accusative() {
+        let r = first_noun("қаланы");
+        assert_eq!(r.lemma, "қала");
+        assert_eq!(r.features.case, Some(Case::Accusative));
+    }
+
+    #[test]
+    fn vowel_stem_plural() {
+        let r = first_noun("қалалар");
+        assert_eq!(r.lemma, "қала");
+        assert_eq!(r.features.number, Some(Number::Plural));
+    }
+
+    #[test]
+    fn vowel_stem_possessive_p3sg() {
+        // қала + сы (after vowel, с stays — Yiner rule 15)
+        let r = first_noun("қаласы");
+        assert_eq!(r.lemma, "қала");
+        assert_eq!(r.features.possession, Some(Possession::P3Sg));
+    }
+
+    // Instrumental case
+
+    #[test]
+    fn instrumental_men() {
+        let r = first_noun("қаламен");
+        assert_eq!(r.lemma, "қала");
+        assert_eq!(r.features.case, Some(Case::Instrumental));
+    }
+
+    #[test]
+    fn instrumental_pen() {
+        let r = first_noun("мектеппен");
+        assert_eq!(r.lemma, "мектеп");
+        assert_eq!(r.features.case, Some(Case::Instrumental));
+    }
+
+    #[test]
+    fn instrumental_ben() {
+        let r = first_noun("көзбен");
+        assert_eq!(r.lemma, "көз");
+        assert_eq!(r.features.case, Some(Case::Instrumental));
+    }
+
+    // Voiced-stem words
+
+    #[test]
+    fn voiced_stem_locative() {
+        // көз + де (voiced consonant → д variant)
+        let r = first_noun("көзде");
+        assert_eq!(r.lemma, "көз");
+        assert_eq!(r.features.case, Some(Case::Locative));
+    }
+
+    #[test]
+    fn voiced_stem_plural() {
+        let r = first_noun("көздер");
+        assert_eq!(r.lemma, "көз");
+        assert_eq!(r.features.number, Some(Number::Plural));
+    }
+
+    // Different words, same pattern
+
+    #[test]
+    fn book_dative() {
+        let r = first_noun("кітапқа");
+        assert_eq!(r.lemma, "кітап");
+        assert_eq!(r.features.case, Some(Case::Dative));
+    }
+
+    #[test]
+    fn child_plural_genitive() {
+        let r = first_noun("балалардың");
+        assert_eq!(r.lemma, "бала");
+        assert_eq!(r.features.number, Some(Number::Plural));
+        assert_eq!(r.features.case, Some(Case::Genitive));
+    }
+
+    #[test]
+    fn house_possessive_p1sg() {
+        let r = first_noun("үйім");
+        assert_eq!(r.lemma, "үй");
+        assert_eq!(r.features.possession, Some(Possession::P1Sg));
+    }
+
+    #[test]
+    fn table_locative() {
+        let r = first_noun("үстелде");
+        assert_eq!(r.lemma, "үстел");
         assert_eq!(r.features.case, Some(Case::Locative));
     }
 }
