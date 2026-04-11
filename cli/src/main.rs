@@ -6,23 +6,33 @@ fn main() {
     let words: Vec<String> = env::args().skip(1).collect();
 
     if words.is_empty() {
-        eprintln!("Usage: kaz-morph <word> [word...]");
-        std::process::exit(1);
+        use std::io::{self, BufRead};
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            let line = line.expect("failed to read line");
+            let word = line.trim();
+            if word.is_empty() { continue; }
+            print_word(&analyzer, word);
+        }
+    } else {
+        for word in &words {
+            print_word(&analyzer, word);
+        }
     }
+}
 
-    for word in &words {
-        let results = analyzer.analyze(word);
-        println!("  {word}");
-        println!();
+fn print_word(analyzer: &Analyzer, word: &str) {
+    let results = analyzer.analyze(word);
+    println!("  {word}");
+    println!();
 
-        if results.is_empty() {
-            println!("  no analysis found");
-        } else {
-            for (i, r) in results.iter().enumerate() {
-                println!("  {}. lemma: {}  pos: {:?}", i + 1, r.lemma, r.pos);
-                print_features(&r.features);
-                println!();
-            }
+    if results.is_empty() {
+        println!("  no analysis found");
+    } else {
+        for (i, r) in results.iter().enumerate() {
+            println!("  {}. lemma: {}  pos: {:?}", i + 1, r.lemma, r.pos);
+            print_features(&r.features);
+            println!();
         }
     }
 }
