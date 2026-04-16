@@ -96,25 +96,32 @@ impl Analyzer {
         // Layer 1: strip tense suffix (or none)
         let tense_options = self.strip_past_definite(word);
 
-        for (rest, tense) in &tense_options {
-            // Try to find verb stem in lexicon (with mutation variants)
-            let variants = self.stem_variants(rest);
-            for variant in &variants {
-                if let Some(entries) = self.lexicon.lookup(variant) {
-                    for e in entries {
-                        if e.pos != Pos::Verb {
-                            continue;
+        for (rest1, tense) in &tense_options {
+            // Layer 2: strip negation (or none)
+            let neg_options = self.strip_negation(rest1);
+            let mut after_neg: Vec<(&str, bool)> = neg_options;
+            after_neg.push((rest1, false));
+
+            for (stem, negation) in &after_neg {
+                let variants = self.stem_variants(stem);
+                for variant in &variants {
+                    if let Some(entries) = self.lexicon.lookup(variant) {
+                        for e in entries {
+                            if e.pos != Pos::Verb {
+                                continue;
+                            }
+                            let features = Features {
+                                tense: *tense,
+                                negation: *negation,
+                                ..Default::default()
+                            };
+                            results.push(MorphAnalysis {
+                                lemma: e.lemma.clone(),
+                                pos: Pos::Verb,
+                                features,
+                                score: 0.6,
+                            });
                         }
-                        let features = Features {
-                            tense: *tense,
-                            ..Default::default()
-                        };
-                        results.push(MorphAnalysis {
-                            lemma: e.lemma.clone(),
-                            pos: Pos::Verb,
-                            features,
-                            score: 0.6,
-                        });
                     }
                 }
             }
@@ -288,6 +295,22 @@ impl Analyzer {
         }
         results
     }
+
+    /// Strip negation suffix: -ма/-ме/-ба/-бе/-па/-пе
+    fn strip_negation<'a>(&self, word: &'a str) -> Vec<(&'a str, bool)> {
+        let suffixes = ["ма", "ме", "ба", "бе", "па", "пе"];
+
+        let mut results = Vec::new();
+        for sfx in suffixes {
+            if let Some(stem) = word.strip_suffix(sfx) {
+                if !stem.is_empty() {
+                    results.push((stem, true));
+                }
+            }
+        }
+        results
+    }
+
 }
 
 impl Default for Analyzer {
