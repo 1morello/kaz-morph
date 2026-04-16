@@ -45,6 +45,9 @@ impl Analyzer {
         // 2. Try noun suffix stripping
         self.try_noun(&word, &mut results);
 
+        // 3. Try verb suffix stripping
+        self.try_verb(&word, &mut results);
+
         // Sort by score descending, deduplicate
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         results.dedup_by(|a, b| {
@@ -79,6 +82,40 @@ impl Analyzer {
                 for (stem, number) in &after_plural {
                     // Try to find stem in lexicon (with mutation variants)
                     self.try_lookup_stem(stem, *case, *poss, *number, results);
+                }
+            }
+        }
+    }
+
+    /// Try to parse a word as a verb:
+    /// ROOT + [Negation] + [Tense]
+    ///
+    /// Starting simple: past definite only.
+    /// gang
+    fn try_verb(&self, word: &str, results: &mut Vec<MorphAnalysis>) {
+        // Layer 1: strip tense suffix (or none)
+        let tense_options = self.strip_past_definite(word);
+
+        for (rest, tense) in &tense_options {
+            // Try to find verb stem in lexicon (with mutation variants)
+            let variants = self.stem_variants(rest);
+            for variant in &variants {
+                if let Some(entries) = self.lexicon.lookup(variant) {
+                    for e in entries {
+                        if e.pos != Pos::Verb {
+                            continue;
+                        }
+                        let features = Features {
+                            tense: *tense,
+                            ..Default::default()
+                        };
+                        results.push(MorphAnalysis {
+                            lemma: e.lemma.clone(),
+                            pos: Pos::Verb,
+                            features,
+                            score: 0.6,
+                        });
+                    }
                 }
             }
         }
