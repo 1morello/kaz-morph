@@ -93,7 +93,7 @@ impl Analyzer {
     /// Starting simple: past definite only.
     /// gang
     fn try_verb(&self, word: &str, results: &mut Vec<MorphAnalysis>) {
-        // Layer 1: strip tense suffix (or none)
+        // Layer 1: strip tense suffix
         let mut tense_options = self.strip_past_definite(word);
         tense_options.extend(self.strip_past_narrative(word));
         tense_options.extend(self.strip_past_transitional(word));
@@ -106,25 +106,33 @@ impl Analyzer {
             let mut after_neg: Vec<(&str, bool)> = neg_options;
             after_neg.push((rest1, false));
 
-            for (stem, negation) in &after_neg {
-                let variants = self.stem_variants(stem);
-                for variant in &variants {
-                    if let Some(entries) = self.lexicon.lookup(variant) {
-                        for e in entries {
-                            if e.pos != Pos::Verb {
-                                continue;
+            for (rest2, negation) in &after_neg {
+                // Layer 3: strip voice (or none)
+                let voice_options = self.strip_voice(rest2);
+                let mut after_voice: Vec<(&str, Option<Voice>)> = voice_options;
+                after_voice.push((rest2, None));
+
+                for (stem, voice) in &after_voice {
+                    let variants = self.stem_variants(stem);
+                    for variant in &variants {
+                        if let Some(entries) = self.lexicon.lookup(variant) {
+                            for e in entries {
+                                if e.pos != Pos::Verb {
+                                    continue;
+                                }
+                                let features = Features {
+                                    tense: *tense,
+                                    negation: *negation,
+                                    voice: *voice,
+                                    ..Default::default()
+                                };
+                                results.push(MorphAnalysis {
+                                    lemma: e.lemma.clone(),
+                                    pos: Pos::Verb,
+                                    features,
+                                    score: 0.6,
+                                });
                             }
-                            let features = Features {
-                                tense: *tense,
-                                negation: *negation,
-                                ..Default::default()
-                            };
-                            results.push(MorphAnalysis {
-                                lemma: e.lemma.clone(),
-                                pos: Pos::Verb,
-                                features,
-                                score: 0.6,
-                            });
                         }
                     }
                 }
@@ -346,6 +354,37 @@ impl Analyzer {
             if let Some(stem) = word.strip_suffix(sfx) {
                 if !stem.is_empty() {
                     results.push((stem, true));
+                }
+            }
+        }
+        results
+    }
+
+    /// Strip voice suffix.
+    ///
+    /// Reflexive:  -ын/-ін/-н
+    /// Passive:    -ыл/-іл/-л
+    /// Collective: -ыс/-іс/-с
+    /// Causative:  -тыр/-тір/-дыр/-дір/-ғыз/-гіз/-қыз/-кіз
+    fn strip_voice<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Voice>)> {
+        let table: &[(&[&str], Voice)] = &[
+            // Longer suffixes first
+            (&["тыр", "тір", "дыр", "дір", "ғыз", "гіз", "қыз", "кіз"], Voice::Causative),
+            (&["ын", "ін"], Voice::Reflexive),
+            (&["ыл", "іл"], Voice::Passive),
+            (&["ыс", "іс"], Voice::Collective),
+            (&["н"], Voice::Reflexive),
+            (&["л"], Voice::Passive),
+            (&["с"], Voice::Collective),
+        ];
+
+        let mut results = Vec::new();
+        for (suffixes, voice) in table {
+            for sfx in *suffixes {
+                if let Some(stem) = word.strip_suffix(sfx) {
+                    if !stem.is_empty() {
+                        results.push((stem, Some(*voice)));
+                    }
                 }
             }
         }
@@ -622,7 +661,7 @@ mod tests {
     }
     
 
-    // ── Verbs: Past Definite ──
+    // -- Verbs: Past Definite --
 
     fn first_verb(word: &str) -> MorphAnalysis {
         let a = analyzer();
@@ -758,6 +797,36 @@ mod tests {
         let r = first_verb("келмек");
         assert_eq!(r.lemma, "кел");
         assert_eq!(r.features.tense, Some(Tense::FutureGoal));
+    }
+
+    // Verbs: Voice
+
+    #[test]
+    fn verb_passive_past() {
+        // жаз + ыл + ды (был написан)
+        let r = first_verb("жазылды");
+        assert_eq!(r.lemma, "жаз");
+        assert_eq!(r.features.voice, Some(Voice::Passive));
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_causative_past() {
+        // бар + ғыз + ды (заставил пойти)
+        let r = first_verb("барғызды");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.voice, Some(Voice::Causative));
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_causative_negative() {
+        // бар + ғыз + ба + ды (не заставил пойти)
+        let r = first_verb("барғызбады");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.voice, Some(Voice::Causative));
+        assert_eq!(r.features.negation, true);
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
     }
 
 }
