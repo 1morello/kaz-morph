@@ -93,7 +93,7 @@ impl Analyzer {
     /// Starting simple: past definite only.
     /// gang
     fn try_verb(&self, word: &str, results: &mut Vec<MorphAnalysis>) {
-        // Layer 1: strip tense suffix (or none)
+        // Layer 1: strip tense suffix
         let mut tense_options = self.strip_past_definite(word);
         tense_options.extend(self.strip_past_narrative(word));
         tense_options.extend(self.strip_past_transitional(word));
@@ -106,25 +106,33 @@ impl Analyzer {
             let mut after_neg: Vec<(&str, bool)> = neg_options;
             after_neg.push((rest1, false));
 
-            for (stem, negation) in &after_neg {
-                let variants = self.stem_variants(stem);
-                for variant in &variants {
-                    if let Some(entries) = self.lexicon.lookup(variant) {
-                        for e in entries {
-                            if e.pos != Pos::Verb {
-                                continue;
+            for (rest2, negation) in &after_neg {
+                // Layer 3: strip voice (or none)
+                let voice_options = self.strip_voice(rest2);
+                let mut after_voice: Vec<(&str, Option<Voice>)> = voice_options;
+                after_voice.push((rest2, None));
+
+                for (stem, voice) in &after_voice {
+                    let variants = self.stem_variants(stem);
+                    for variant in &variants {
+                        if let Some(entries) = self.lexicon.lookup(variant) {
+                            for e in entries {
+                                if e.pos != Pos::Verb {
+                                    continue;
+                                }
+                                let features = Features {
+                                    tense: *tense,
+                                    negation: *negation,
+                                    voice: *voice,
+                                    ..Default::default()
+                                };
+                                results.push(MorphAnalysis {
+                                    lemma: e.lemma.clone(),
+                                    pos: Pos::Verb,
+                                    features,
+                                    score: 0.6,
+                                });
                             }
-                            let features = Features {
-                                tense: *tense,
-                                negation: *negation,
-                                ..Default::default()
-                            };
-                            results.push(MorphAnalysis {
-                                lemma: e.lemma.clone(),
-                                pos: Pos::Verb,
-                                features,
-                                score: 0.6,
-                            });
                         }
                     }
                 }
