@@ -352,6 +352,37 @@ impl Analyzer {
         results
     }
 
+    /// Strip voice suffix.
+    ///
+    /// Reflexive:  -ын/-ін/-н
+    /// Passive:    -ыл/-іл/-л
+    /// Collective: -ыс/-іс/-с
+    /// Causative:  -тыр/-тір/-дыр/-дір/-ғыз/-гіз/-қыз/-кіз
+    fn strip_voice<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Voice>)> {
+        let table: &[(&[&str], Voice)] = &[
+            // Longer suffixes first
+            (&["тыр", "тір", "дыр", "дір", "ғыз", "гіз", "қыз", "кіз"], Voice::Causative),
+            (&["ын", "ін"], Voice::Reflexive),
+            (&["ыл", "іл"], Voice::Passive),
+            (&["ыс", "іс"], Voice::Collective),
+            (&["н"], Voice::Reflexive),
+            (&["л"], Voice::Passive),
+            (&["с"], Voice::Collective),
+        ];
+
+        let mut results = Vec::new();
+        for (suffixes, voice) in table {
+            for sfx in *suffixes {
+                if let Some(stem) = word.strip_suffix(sfx) {
+                    if !stem.is_empty() {
+                        results.push((stem, Some(*voice)));
+                    }
+                }
+            }
+        }
+        results
+    }
+
 }
 
 impl Default for Analyzer {
