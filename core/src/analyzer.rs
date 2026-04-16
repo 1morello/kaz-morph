@@ -614,4 +614,22 @@ mod tests {
         assert_eq!(r.features.tense, Some(Tense::PastDefinite));
     }
 
+    #[test]
+    fn verb_past_definite_negative() {
+        // бар + ма + ды
+        let r = first_verb("бармады");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert!(r.features.negation);
+    }
+
+    #[test]
+    fn verb_past_definite_negative_front() {
+        // кел + ме + ді
+        let r = first_verb("келмеді");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert!(r.features.negation);
+    }
+
 }
