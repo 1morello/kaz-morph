@@ -556,4 +556,39 @@ mod tests {
         assert_eq!(r.lemma, "үстел");
         assert_eq!(r.features.case, Some(Case::Locative));
     }
+    
+
+    // ── Verbs: Past Definite ──
+
+    fn first_verb(word: &str) -> MorphAnalysis {
+        let a = analyzer();
+        let results = a.analyze(word);
+        results
+            .into_iter()
+            .find(|r| r.pos == Pos::Verb)
+            .unwrap_or_else(|| panic!("no verb analysis for '{word}'"))
+    }
+
+    #[test]
+    fn verb_past_definite() {
+        let r = first_verb("барды");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_past_definite_front() {
+        let r = first_verb("келді");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_past_definite_voiceless() {
+        // айт + ты (voiceless stem → т variant)
+        let r = first_verb("айтты");
+        assert_eq!(r.lemma, "айт");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
 }
