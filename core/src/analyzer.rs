@@ -236,6 +236,21 @@ impl Analyzer {
         }
         results
     }
+
+    /// Strip past definite tense suffix: -ды/-ді/-ты/-ті
+    fn strip_past_definite<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
+        let suffixes = ["ды", "ді", "ты", "ті"];
+
+        let mut results = Vec::new();
+        for sfx in suffixes {
+            if let Some(stem) = word.strip_suffix(sfx) {
+                if !stem.is_empty() {
+                    results.push((stem, Some(Tense::PastDefinite)));
+                }
+            }
+        }
+        results
+    }
 }
 
 impl Default for Analyzer {
