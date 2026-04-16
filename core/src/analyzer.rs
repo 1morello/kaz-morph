@@ -45,6 +45,9 @@ impl Analyzer {
         // 2. Try noun suffix stripping
         self.try_noun(&word, &mut results);
 
+        // 3. Try verb suffix stripping
+        self.try_verb(&word, &mut results);
+
         // Sort by score descending, deduplicate
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         results.dedup_by(|a, b| {
@@ -79,6 +82,51 @@ impl Analyzer {
                 for (stem, number) in &after_plural {
                     // Try to find stem in lexicon (with mutation variants)
                     self.try_lookup_stem(stem, *case, *poss, *number, results);
+                }
+            }
+        }
+    }
+
+    /// Try to parse a word as a verb:
+    /// ROOT + [Negation] + [Tense]
+    ///
+    /// Starting simple: past definite only.
+    /// gang
+    fn try_verb(&self, word: &str, results: &mut Vec<MorphAnalysis>) {
+        // Layer 1: strip tense suffix (or none)
+        let mut tense_options = self.strip_past_definite(word);
+        tense_options.extend(self.strip_past_narrative(word));
+        tense_options.extend(self.strip_past_transitional(word));
+        tense_options.extend(self.strip_future_indefinite(word));
+        tense_options.extend(self.strip_future_goal(word));
+
+        for (rest1, tense) in &tense_options {
+            // Layer 2: strip negation (or none)
+            let neg_options = self.strip_negation(rest1);
+            let mut after_neg: Vec<(&str, bool)> = neg_options;
+            after_neg.push((rest1, false));
+
+            for (stem, negation) in &after_neg {
+                let variants = self.stem_variants(stem);
+                for variant in &variants {
+                    if let Some(entries) = self.lexicon.lookup(variant) {
+                        for e in entries {
+                            if e.pos != Pos::Verb {
+                                continue;
+                            }
+                            let features = Features {
+                                tense: *tense,
+                                negation: *negation,
+                                ..Default::default()
+                            };
+                            results.push(MorphAnalysis {
+                                lemma: e.lemma.clone(),
+                                pos: Pos::Verb,
+                                features,
+                                score: 0.6,
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -236,6 +284,74 @@ impl Analyzer {
         }
         results
     }
+
+    // ────────────────────────────────────────────────────
+    //  Verbal suffix stripping
+    // ────────────────────────────────────────────────────
+
+    /// Strip past definite tense suffix: -ды/-ді/-ты/-ті
+    fn strip_past_definite<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
+        let suffixes = ["ды", "ді", "ты", "ті"];
+        self.strip_tense_suffix(word, &suffixes, Tense::PastDefinite)
+    }
+
+    /// Strip past narrative tense suffix: -ған/-ген/-қан/-кен
+    fn strip_past_narrative<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
+        let suffixes = ["ған", "ген", "қан", "кен"];
+        self.strip_tense_suffix(word, &suffixes, Tense::PastNarrative)
+    }
+
+    /// Strip past transitional suffix: -ып/-іп/-п
+    fn strip_past_transitional<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
+        let suffixes = ["ып", "іп", "п"];
+        self.strip_tense_suffix(word, &suffixes, Tense::PastTransitional)
+    }
+
+    /// Strip future indefinite suffix: -ар/-ер/-р
+    fn strip_future_indefinite<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
+        let suffixes = ["ар", "ер", "р"];
+        self.strip_tense_suffix(word, &suffixes, Tense::FutureIndefinite)
+    }
+
+    /// Strip future goal suffix: -мақ/-мек/-бақ/-бек/-пақ/-пек
+    fn strip_future_goal<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
+        let suffixes = ["мақ", "мек", "бақ", "бек", "пақ", "пек"];
+        self.strip_tense_suffix(word, &suffixes, Tense::FutureGoal)
+    }
+
+    /// Generic tense suffix stripper — all tense methods delegate here.
+    fn strip_tense_suffix<'a>(
+        &self,
+        word: &'a str,
+        suffixes: &[&str],
+        tense: Tense,
+    ) -> Vec<(&'a str, Option<Tense>)> {
+        let mut results = Vec::new();
+        for sfx in suffixes {
+            if let Some(stem) = word.strip_suffix(sfx) {
+                if !stem.is_empty() {
+                    results.push((stem, Some(tense)));
+                }
+            }
+        }
+        results
+    }
+
+    /// Strip negation suffix: -ма/-ме/-ба/-бе/-па/-пе
+    fn strip_negation<'a>(&self, word: &'a str) -> Vec<(&'a str, bool)> {
+        let suffixes = ["ма", "ме", "ба", "бе", "па", "пе"];
+
+        let mut results = Vec::new();
+        for sfx in suffixes {
+            if let Some(stem) = word.strip_suffix(sfx) {
+                if !stem.is_empty() {
+                    results.push((stem, true));
+                }
+            }
+        }
+        results
+    }
+
 }
 
 impl Default for Analyzer {
@@ -504,4 +620,144 @@ mod tests {
         assert_eq!(r.lemma, "үстел");
         assert_eq!(r.features.case, Some(Case::Locative));
     }
+    
+
+    // ── Verbs: Past Definite ──
+
+    fn first_verb(word: &str) -> MorphAnalysis {
+        let a = analyzer();
+        let results = a.analyze(word);
+        results
+            .into_iter()
+            .find(|r| r.pos == Pos::Verb)
+            .unwrap_or_else(|| panic!("no verb analysis for '{word}'"))
+    }
+
+    #[test]
+    fn verb_past_definite() {
+        let r = first_verb("барды");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_past_definite_front() {
+        let r = first_verb("келді");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_past_definite_voiceless() {
+        // айт + ты (voiceless stem → т variant)
+        let r = first_verb("айтты");
+        assert_eq!(r.lemma, "айт");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_past_definite_negative() {
+        // бар + ма + ды
+        let r = first_verb("бармады");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert!(r.features.negation);
+    }
+
+    #[test]
+    fn verb_past_definite_negative_front() {
+        // кел + ме + ді
+        let r = first_verb("келмеді");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert!(r.features.negation);
+    }
+
+    // Verbs: Past Narrative
+
+    #[test]
+    fn verb_past_narrative() {
+        let r = first_verb("барған");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastNarrative));
+    }
+
+    #[test]
+    fn verb_past_narrative_front() {
+        let r = first_verb("келген");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PastNarrative));
+    }
+
+    #[test]
+    fn verb_past_narrative_voiceless() {
+        // айт + қан (voiceless stem → қ variant)
+        let r = first_verb("айтқан");
+        assert_eq!(r.lemma, "айт");
+        assert_eq!(r.features.tense, Some(Tense::PastNarrative));
+    }
+
+    #[test]
+    fn verb_past_narrative_negative() {
+        // бар + ма + ған
+        let r = first_verb("бармаған");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastNarrative));
+        assert!(r.features.negation);
+    }
+
+    // Verbs: Past Transitional 
+
+    #[test]
+    fn verb_past_transitional() {
+        // бар + ып
+        let r = first_verb("барып");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastTransitional));
+    }
+
+    #[test]
+    fn verb_past_transitional_front() {
+        // кел + іп
+        let r = first_verb("келіп");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PastTransitional));
+    }
+
+    // Verbs: Future Indefinite
+
+    #[test]
+    fn verb_future_indefinite() {
+        // бар + ар
+        let r = first_verb("барар");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::FutureIndefinite));
+    }
+
+    #[test]
+    fn verb_future_indefinite_front() {
+        // кел + ер
+        let r = first_verb("келер");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::FutureIndefinite));
+    }
+
+    // Verbs: Future Goal
+
+    #[test]
+    fn verb_future_goal() {
+        // бар + мақ
+        let r = first_verb("бармақ");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::FutureGoal));
+    }
+
+    #[test]
+    fn verb_future_goal_front() {
+        // кел + мек
+        let r = first_verb("келмек");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::FutureGoal));
+    }
+
 }
