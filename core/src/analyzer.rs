@@ -661,7 +661,7 @@ mod tests {
     }
     
 
-    // ── Verbs: Past Definite ──
+    // -- Verbs: Past Definite --
 
     fn first_verb(word: &str) -> MorphAnalysis {
         let a = analyzer();
@@ -797,6 +797,36 @@ mod tests {
         let r = first_verb("келмек");
         assert_eq!(r.lemma, "кел");
         assert_eq!(r.features.tense, Some(Tense::FutureGoal));
+    }
+
+    // Verbs: Voice
+
+    #[test]
+    fn verb_passive_past() {
+        // жаз + ыл + ды (был написан)
+        let r = first_verb("жазылды");
+        assert_eq!(r.lemma, "жаз");
+        assert_eq!(r.features.voice, Some(Voice::Passive));
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_causative_past() {
+        // бар + ғыз + ды (заставил пойти)
+        let r = first_verb("барғызды");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.voice, Some(Voice::Causative));
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    #[test]
+    fn verb_causative_negative() {
+        // бар + ғыз + ба + ды (не заставил пойти)
+        let r = first_verb("барғызбады");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.voice, Some(Voice::Causative));
+        assert_eq!(r.features.negation, true);
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
     }
 
 }
