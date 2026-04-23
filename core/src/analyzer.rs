@@ -93,45 +93,54 @@ impl Analyzer {
     /// Starting simple: past definite only.
     /// gang
     fn try_verb(&self, word: &str, results: &mut Vec<MorphAnalysis>) {
-        // Layer 1: strip tense suffix
-        let mut tense_options = self.strip_past_definite(word);
-        tense_options.extend(self.strip_past_narrative(word));
-        tense_options.extend(self.strip_past_transitional(word));
-        tense_options.extend(self.strip_future_indefinite(word));
-        tense_options.extend(self.strip_future_goal(word));
+        // Layer 0: strip person suffix (or none)
+        let person_options = self.strip_person(word);
+        let mut after_person: Vec<(&str, Option<Person>, Option<Number>)> = person_options;
+        after_person.push((word, None, None));
 
-        for (rest1, tense) in &tense_options {
-            // Layer 2: strip negation (or none)
-            let neg_options = self.strip_negation(rest1);
-            let mut after_neg: Vec<(&str, bool)> = neg_options;
-            after_neg.push((rest1, false));
+        for (rest0, person, p_number) in &after_person {
+            // Layer 1: strip tense suffix
+            let mut tense_options = self.strip_past_definite(rest0);
+            tense_options.extend(self.strip_past_narrative(rest0));
+            tense_options.extend(self.strip_past_transitional(rest0));
+            tense_options.extend(self.strip_future_indefinite(rest0));
+            tense_options.extend(self.strip_future_goal(rest0));
 
-            for (rest2, negation) in &after_neg {
-                // Layer 3: strip voice (or none)
-                let voice_options = self.strip_voice(rest2);
-                let mut after_voice: Vec<(&str, Option<Voice>)> = voice_options;
-                after_voice.push((rest2, None));
+            for (rest1, tense) in &tense_options {
+                // Layer 2: strip negation (or none)
+                let neg_options = self.strip_negation(rest1);
+                let mut after_neg: Vec<(&str, bool)> = neg_options;
+                after_neg.push((rest1, false));
 
-                for (stem, voice) in &after_voice {
-                    let variants = self.stem_variants(stem);
-                    for variant in &variants {
-                        if let Some(entries) = self.lexicon.lookup(variant) {
-                            for e in entries {
-                                if e.pos != Pos::Verb {
-                                    continue;
+                for (rest2, negation) in &after_neg {
+                    // Layer 3: strip voice (or none)
+                    let voice_options = self.strip_voice(rest2);
+                    let mut after_voice: Vec<(&str, Option<Voice>)> = voice_options;
+                    after_voice.push((rest2, None));
+
+                    for (stem, voice) in &after_voice {
+                        let variants = self.stem_variants(stem);
+                        for variant in &variants {
+                            if let Some(entries) = self.lexicon.lookup(variant) {
+                                for e in entries {
+                                    if e.pos != Pos::Verb {
+                                        continue;
+                                    }
+                                    let features = Features {
+                                        tense: *tense,
+                                        negation: *negation,
+                                        voice: *voice,
+                                        person: *person,
+                                        number: *p_number,
+                                        ..Default::default()
+                                    };
+                                    results.push(MorphAnalysis {
+                                        lemma: e.lemma.clone(),
+                                        pos: Pos::Verb,
+                                        features,
+                                        score: 0.6,
+                                    });
                                 }
-                                let features = Features {
-                                    tense: *tense,
-                                    negation: *negation,
-                                    voice: *voice,
-                                    ..Default::default()
-                                };
-                                results.push(MorphAnalysis {
-                                    lemma: e.lemma.clone(),
-                                    pos: Pos::Verb,
-                                    features,
-                                    score: 0.6,
-                                });
                             }
                         }
                     }
@@ -139,6 +148,7 @@ impl Analyzer {
             }
         }
     }
+
 
     /// Look up a stem in the lexicon, also trying reverse
     /// consonant mutations (б→п, г→к, ғ→қ).
@@ -384,6 +394,40 @@ impl Analyzer {
                 if let Some(stem) = word.strip_suffix(sfx) {
                     if !stem.is_empty() {
                         results.push((stem, Some(*voice)));
+                    }
+                }
+            }
+        }
+        results
+    }
+
+    /// Strip person/number agreement suffix.
+    ///
+    /// These come after the tense suffix:
+    /// 1Sg: -м/-мын/-мін
+    /// 2Sg: -ң/-сың/-сің
+    /// 1Pl: -қ/-к/-мыз/-міз
+    /// 2Pl: -ңдар/-ңдер/-сыңдар/-сіңдер
+    /// 3rd person has no overt suffix (zero).
+    fn strip_person<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Person>, Option<Number>)> {
+        let table: &[(&[&str], Person, Number)] = &[
+            // Longer suffixes first
+            (&["сыңдар", "сіңдер"], Person::Second, Number::Plural),
+            (&["ңдар", "ңдер"], Person::Second, Number::Plural),
+            (&["мыз", "міз"], Person::First, Number::Plural),
+            (&["мын", "мін"], Person::First, Number::Singular),
+            (&["сың", "сің"], Person::Second, Number::Singular),
+            (&["м"], Person::First, Number::Singular),
+            (&["ң"], Person::Second, Number::Singular),
+            (&["қ", "к"], Person::First, Number::Plural),
+        ];
+
+        let mut results = Vec::new();
+        for (suffixes, person, number) in table {
+            for sfx in *suffixes {
+                if let Some(stem) = word.strip_suffix(sfx) {
+                    if !stem.is_empty() {
+                        results.push((stem, Some(*person), Some(*number)));
                     }
                 }
             }
@@ -827,6 +871,66 @@ mod tests {
         assert_eq!(r.features.voice, Some(Voice::Causative));
         assert_eq!(r.features.negation, true);
         assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+    }
+
+    // Verbs: Person/Number 
+
+    #[test]
+    fn verb_past_1sg() {
+        // бар + ды + м
+        let r = first_verb("бардым");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert_eq!(r.features.person, Some(Person::First));
+        assert_eq!(r.features.number, Some(Number::Singular));
+    }
+
+    #[test]
+    fn verb_past_2sg() {
+        // бар + ды + ң
+        let r = first_verb("бардың");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert_eq!(r.features.person, Some(Person::Second));
+    }
+
+    #[test]
+    fn verb_past_1pl() {
+        // бар + ды + қ
+        let r = first_verb("бардық");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert_eq!(r.features.person, Some(Person::First));
+        assert_eq!(r.features.number, Some(Number::Plural));
+    }
+
+    #[test]
+    fn verb_past_front_1sg() {
+        // кел + ді + м
+        let r = first_verb("келдім");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert_eq!(r.features.person, Some(Person::First));
+    }
+
+    #[test]
+    fn verb_past_negative_1sg() {
+        // бар + ма + ды + м
+        let r = first_verb("бармадым");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert_eq!(r.features.negation, true);
+        assert_eq!(r.features.person, Some(Person::First));
+    }
+
+    #[test]
+    fn verb_past_2pl() {
+        // кел + ді + ңдер
+        let r = first_verb("келдіңдер");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PastDefinite));
+        assert_eq!(r.features.person, Some(Person::Second));
+        assert_eq!(r.features.number, Some(Number::Plural));
     }
 
 }
