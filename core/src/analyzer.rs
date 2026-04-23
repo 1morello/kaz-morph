@@ -391,6 +391,40 @@ impl Analyzer {
         results
     }
 
+    /// Strip person/number agreement suffix.
+    ///
+    /// These come after the tense suffix:
+    /// 1Sg: -м/-мын/-мін
+    /// 2Sg: -ң/-сың/-сің
+    /// 1Pl: -қ/-к/-мыз/-міз
+    /// 2Pl: -ңдар/-ңдер/-сыңдар/-сіңдер
+    /// 3rd person has no overt suffix (zero).
+    fn strip_person<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Person>, Option<Number>)> {
+        let table: &[(&[&str], Person, Number)] = &[
+            // Longer suffixes first
+            (&["сыңдар", "сіңдер"], Person::Second, Number::Plural),
+            (&["ңдар", "ңдер"], Person::Second, Number::Plural),
+            (&["мыз", "міз"], Person::First, Number::Plural),
+            (&["мын", "мін"], Person::First, Number::Singular),
+            (&["сың", "сің"], Person::Second, Number::Singular),
+            (&["м"], Person::First, Number::Singular),
+            (&["ң"], Person::Second, Number::Singular),
+            (&["қ", "к"], Person::First, Number::Plural),
+        ];
+
+        let mut results = Vec::new();
+        for (suffixes, person, number) in table {
+            for sfx in *suffixes {
+                if let Some(stem) = word.strip_suffix(sfx) {
+                    if !stem.is_empty() {
+                        results.push((stem, Some(*person), Some(*number)));
+                    }
+                }
+            }
+        }
+        results
+    }
+
 }
 
 impl Default for Analyzer {
