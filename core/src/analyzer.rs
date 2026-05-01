@@ -48,6 +48,9 @@ impl Analyzer {
         // 3. Try verb suffix stripping
         self.try_verb(&word, &mut results);
 
+        // 4. try adjective (bare or substantivized)
+        self.try_adjective(&word, &mut results);
+
         // Sort by score descending, deduplicate
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         results.dedup_by(|a, b| {
@@ -144,6 +147,52 @@ impl Analyzer {
                                     });
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Try to parse a word as an adjective.
+    ///
+    /// Adjectives can be bare (жақсы) or substantivized,
+    /// taking noun suffixes like plural, case, possessive.
+    fn try_adjective(&self, word: &str, results: &mut Vec<MorphAnalysis>) {
+        // Same layers as nouns, but looking for adjective stems
+        let case_options = self.strip_case(word);
+        let mut after_case: Vec<(&str, Option<Case>)> = case_options;
+        after_case.push((word, None));
+
+        for (rest1, case) in &after_case {
+            let poss_options = self.strip_possessive(rest1);
+            let mut after_poss: Vec<(&str, Option<Possession>)> = poss_options;
+            after_poss.push((rest1, None));
+
+            for (rest2, poss) in &after_poss {
+                let plural_options = self.strip_plural(rest2);
+                let mut after_plural: Vec<(&str, Option<Number>)> = plural_options;
+                after_plural.push((rest2, None));
+
+                for (stem, number) in &after_plural {
+                    if stem.is_empty() { continue; }
+                    if let Some(entries) = self.lexicon.lookup(stem) {
+                        for e in entries {
+                            if e.pos != Pos::Adjective {
+                                continue;
+                            }
+                            let features = Features {
+                                number: *number,
+                                case: *case,
+                                possession: *poss,
+                                ..Default::default()
+                            };
+                            results.push(MorphAnalysis {
+                                lemma: e.lemma.clone(),
+                                pos: Pos::Adjective,
+                                features,
+                                score: 0.5,
+                            });
                         }
                     }
                 }
@@ -977,6 +1026,48 @@ mod tests {
         let r = first_verb("келуде");
         assert_eq!(r.lemma, "кел");
         assert_eq!(r.features.tense, Some(Tense::PresentProgressive));
+    }
+
+    // Adjectives
+
+    fn first_adj(word: &str) -> MorphAnalysis {
+        let a = analyzer();
+        let results = a.analyze(word);
+        results
+            .into_iter()
+            .find(|r| r.pos == Pos::Adjective)
+            .unwrap_or_else(|| panic!("no adjective analysis for '{word}'"))
+    }
+
+    #[test]
+    fn bare_adjective() {
+        let r = first_adj("жақсы");
+        assert_eq!(r.lemma, "жақсы");
+        assert_eq!(r.features.case, None);
+    }
+
+    #[test]
+    fn adjective_substantivized_plural() {
+        // жақсы + лар (хорошие люди)
+        let r = first_adj("жақсылар");
+        assert_eq!(r.lemma, "жақсы");
+        assert_eq!(r.features.number, Some(Number::Plural));
+    }
+
+    #[test]
+    fn adjective_substantivized_dative() {
+        // жақсы + ға
+        let r = first_adj("жақсыға");
+        assert_eq!(r.lemma, "жақсы");
+        assert_eq!(r.features.case, Some(Case::Dative));
+    }
+
+    #[test]
+    fn adjective_substantivized_locative() {
+        // жаман + да
+        let r = first_adj("жаманда");
+        assert_eq!(r.lemma, "жаман");
+        assert_eq!(r.features.case, Some(Case::Locative));
     }
 
 }
