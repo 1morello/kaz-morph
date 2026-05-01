@@ -105,6 +105,8 @@ impl Analyzer {
             tense_options.extend(self.strip_past_transitional(rest0));
             tense_options.extend(self.strip_future_indefinite(rest0));
             tense_options.extend(self.strip_future_goal(rest0));
+            tense_options.extend(self.strip_present_definite(rest0));
+            tense_options.extend(self.strip_present_progressive(rest0));
 
             for (rest1, tense) in &tense_options {
                 // Layer 2: strip negation (or none)
@@ -335,6 +337,18 @@ impl Analyzer {
     fn strip_future_goal<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
         let suffixes = ["мақ", "мек", "бақ", "бек", "пақ", "пек"];
         self.strip_tense_suffix(word, &suffixes, Tense::FutureGoal)
+    }
+
+    /// Strip present definite tense suffix: -ады/-еді
+    fn strip_present_definite<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
+        let suffixes = ["ады", "еді"];
+        self.strip_tense_suffix(word, &suffixes, Tense::PresentDefinite)
+    }
+
+    /// Strip present progressive tense suffix: -уда/-уде/-юда/-юде
+    fn strip_present_progressive<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
+        let suffixes = ["уда", "уде", "юда", "юде"];
+        self.strip_tense_suffix(word, &suffixes, Tense::PresentProgressive)
     }
 
     /// Generic tense suffix stripper — all tense methods delegate here.
@@ -931,6 +945,38 @@ mod tests {
         assert_eq!(r.features.tense, Some(Tense::PastDefinite));
         assert_eq!(r.features.person, Some(Person::Second));
         assert_eq!(r.features.number, Some(Number::Plural));
+    }
+
+    // Verbs: Present Definite 
+
+    #[test]
+    fn verb_present_definite() {
+        let r = first_verb("барады");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PresentDefinite));
+    }
+
+    #[test]
+    fn verb_present_definite_front() {
+        let r = first_verb("келеді");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PresentDefinite));
+    }
+
+    // Verbs: Present Progressive
+
+    #[test]
+    fn verb_present_progressive() {
+        let r = first_verb("баруда");
+        assert_eq!(r.lemma, "бар");
+        assert_eq!(r.features.tense, Some(Tense::PresentProgressive));
+    }
+
+    #[test]
+    fn verb_present_progressive_front() {
+        let r = first_verb("келуде");
+        assert_eq!(r.lemma, "кел");
+        assert_eq!(r.features.tense, Some(Tense::PresentProgressive));
     }
 
 }
