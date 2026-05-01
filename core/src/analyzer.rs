@@ -1028,4 +1028,46 @@ mod tests {
         assert_eq!(r.features.tense, Some(Tense::PresentProgressive));
     }
 
+    // Adjectives
+
+    fn first_adj(word: &str) -> MorphAnalysis {
+        let a = analyzer();
+        let results = a.analyze(word);
+        results
+            .into_iter()
+            .find(|r| r.pos == Pos::Adjective)
+            .unwrap_or_else(|| panic!("no adjective analysis for '{word}'"))
+    }
+
+    #[test]
+    fn bare_adjective() {
+        let r = first_adj("жақсы");
+        assert_eq!(r.lemma, "жақсы");
+        assert_eq!(r.features.case, None);
+    }
+
+    #[test]
+    fn adjective_substantivized_plural() {
+        // жақсы + лар (хорошие люди)
+        let r = first_adj("жақсылар");
+        assert_eq!(r.lemma, "жақсы");
+        assert_eq!(r.features.number, Some(Number::Plural));
+    }
+
+    #[test]
+    fn adjective_substantivized_dative() {
+        // жақсы + ға
+        let r = first_adj("жақсыға");
+        assert_eq!(r.lemma, "жақсы");
+        assert_eq!(r.features.case, Some(Case::Dative));
+    }
+
+    #[test]
+    fn adjective_substantivized_locative() {
+        // жаман + да
+        let r = first_adj("жаманда");
+        assert_eq!(r.lemma, "жаман");
+        assert_eq!(r.features.case, Some(Case::Locative));
+    }
+
 }
