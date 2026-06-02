@@ -1,5 +1,6 @@
 use crate::lexicon::Lexicon;
 use crate::phonology;
+use crate::irregular;
 use crate::types::*;
 
 pub struct Analyzer {
@@ -62,6 +63,18 @@ impl Analyzer {
                         score: 0.9,
                     });
                 }
+            }
+        }
+
+        // 6. Irregular forms (pronouns with stem changes)
+        for form in irregular::irregular_forms() {
+            if word == form.surface {
+                results.push(MorphAnalysis {
+                    lemma: form.lemma.to_string(),
+                    pos: form.pos,
+                    features: form.features,
+                    score: 1.0,
+                });
             }
         }
 

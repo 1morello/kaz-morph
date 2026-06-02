@@ -148,6 +148,19 @@ impl Lexicon {
             lex.insert(stem, Pos::Adverb);
         }
 
+        // -- Pronouns
+        let pronouns = [
+            "мен",   // я
+            "сен",   // ты
+            "ол",    // он/она
+            "біз",   // мы
+            "сіз",   // Вы
+            "олар",  // они
+        ];
+        for stem in pronouns {
+            lex.insert(stem, Pos::Pronoun);
+        }
+
         lex
     }
 }
