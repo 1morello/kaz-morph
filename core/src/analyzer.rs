@@ -1084,4 +1084,24 @@ mod tests {
         assert_eq!(r.features.case, Some(Case::Locative));
     }
 
+    // -- Adverbs
+
+    #[test]
+    fn bare_adverb() {
+        let a = analyzer();
+        let results = a.analyze("тез");
+        let r = results.iter().find(|r| r.pos == Pos::Adverb)
+            .expect("no adverb analysis for 'тез'");
+        assert_eq!(r.lemma, "тез");
+    }
+
+    #[test]
+    fn bare_adverb_today() {
+        let a = analyzer();
+        let results = a.analyze("бүгін");
+        let r = results.iter().find(|r| r.pos == Pos::Adverb)
+            .expect("no adverb analysis for 'бүгін'");
+        assert_eq!(r.lemma, "бүгін");
+    }
+
 }
