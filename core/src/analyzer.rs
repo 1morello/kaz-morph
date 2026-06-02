@@ -1,5 +1,6 @@
 use crate::lexicon::Lexicon;
 use crate::phonology;
+use crate::irregular;
 use crate::types::*;
 
 pub struct Analyzer {
@@ -62,6 +63,18 @@ impl Analyzer {
                         score: 0.9,
                     });
                 }
+            }
+        }
+
+        // 6. Irregular forms (pronouns with stem changes)
+        for form in irregular::irregular_forms() {
+            if word == form.surface {
+                results.push(MorphAnalysis {
+                    lemma: form.lemma.to_string(),
+                    pos: form.pos,
+                    features: form.features,
+                    score: 1.0,
+                });
             }
         }
 
@@ -1102,6 +1115,58 @@ mod tests {
         let r = results.iter().find(|r| r.pos == Pos::Adverb)
             .expect("no adverb analysis for 'бүгін'");
         assert_eq!(r.lemma, "бүгін");
+    }
+
+    // -- Pronouns
+
+    fn first_pronoun(word: &str) -> MorphAnalysis {
+        let a = analyzer();
+        let results = a.analyze(word);
+        results
+            .into_iter()
+            .find(|r| r.pos == Pos::Pronoun)
+            .unwrap_or_else(|| panic!("no pronoun analysis for '{word}'"))
+    }
+
+    #[test]
+    fn bare_pronoun() {
+        let r = first_pronoun("мен");
+        assert_eq!(r.lemma, "мен");
+    }
+
+    #[test]
+    fn pronoun_men_dative() {
+        let r = first_pronoun("маған");
+        assert_eq!(r.lemma, "мен");
+        assert_eq!(r.features.case, Some(Case::Dative));
+    }
+
+    #[test]
+    fn pronoun_sen_dative() {
+        let r = first_pronoun("саған");
+        assert_eq!(r.lemma, "сен");
+        assert_eq!(r.features.case, Some(Case::Dative));
+    }
+
+    #[test]
+    fn pronoun_ol_genitive() {
+        let r = first_pronoun("оның");
+        assert_eq!(r.lemma, "ол");
+        assert_eq!(r.features.case, Some(Case::Genitive));
+    }
+
+    #[test]
+    fn pronoun_biz_instrumental() {
+        let r = first_pronoun("бізбен");
+        assert_eq!(r.lemma, "біз");
+        assert_eq!(r.features.case, Some(Case::Instrumental));
+    }
+
+    #[test]
+    fn pronoun_olar_accusative() {
+        let r = first_pronoun("оларды");
+        assert_eq!(r.lemma, "олар");
+        assert_eq!(r.features.case, Some(Case::Accusative));
     }
 
 }
