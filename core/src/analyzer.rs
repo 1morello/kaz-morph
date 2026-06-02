@@ -51,6 +51,20 @@ impl Analyzer {
         // 4. try adjective (bare or substantivized)
         self.try_adjective(&word, &mut results);
 
+        // 5. Adverbs — bare lexicon lookup only
+        if let Some(entries) = self.lexicon.lookup(&word) {
+            for e in entries {
+                if e.pos == Pos::Adverb {
+                    results.push(MorphAnalysis {
+                        lemma: e.lemma.clone(),
+                        pos: Pos::Adverb,
+                        features: Features::default(),
+                        score: 0.9,
+                    });
+                }
+            }
+        }
+
         // Sort by score descending, deduplicate
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         results.dedup_by(|a, b| {
