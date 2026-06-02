@@ -59,7 +59,7 @@ impl Lexicon {
     pub fn built_in() -> Self {
         let mut lex = Self::new();
 
-        // ── Nouns ──────────────────────────────────────
+        // -- Nouns
         let nouns = [
             "адам",   // человек
             "ағаш",   // дерево
@@ -99,7 +99,7 @@ impl Lexicon {
             lex.insert(stem, Pos::Noun);
         }
 
-        // ── Verbs ──────────────────────────────────────
+        // -- Verbs
         let verbs = [
             "ал",    // брать
             "айт",   // говорить
@@ -131,6 +131,21 @@ impl Lexicon {
         ];
         for stem in adjectives {
             lex.insert(stem, Pos::Adjective);
+        }
+
+        // -- Adverbs 
+        let adverbs = [
+            "тез",    // быстро
+            "баяу",   // медленно
+            "жылдам", // быстро
+            "ерте",   // рано
+            "кеш",    // поздно
+            "бүгін",  // сегодня
+            "кеше",   // вчера
+            "ертең",  // завтра
+        ];
+        for stem in adverbs {
+            lex.insert(stem, Pos::Adverb);
         }
 
         lex

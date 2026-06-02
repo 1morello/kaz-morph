@@ -51,6 +51,20 @@ impl Analyzer {
         // 4. try adjective (bare or substantivized)
         self.try_adjective(&word, &mut results);
 
+        // 5. Adverbs — bare lexicon lookup only
+        if let Some(entries) = self.lexicon.lookup(&word) {
+            for e in entries {
+                if e.pos == Pos::Adverb {
+                    results.push(MorphAnalysis {
+                        lemma: e.lemma.clone(),
+                        pos: Pos::Adverb,
+                        features: Features::default(),
+                        score: 0.9,
+                    });
+                }
+            }
+        }
+
         // Sort by score descending, deduplicate
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         results.dedup_by(|a, b| {
@@ -1068,6 +1082,26 @@ mod tests {
         let r = first_adj("жаманда");
         assert_eq!(r.lemma, "жаман");
         assert_eq!(r.features.case, Some(Case::Locative));
+    }
+
+    // -- Adverbs
+
+    #[test]
+    fn bare_adverb() {
+        let a = analyzer();
+        let results = a.analyze("тез");
+        let r = results.iter().find(|r| r.pos == Pos::Adverb)
+            .expect("no adverb analysis for 'тез'");
+        assert_eq!(r.lemma, "тез");
+    }
+
+    #[test]
+    fn bare_adverb_today() {
+        let a = analyzer();
+        let results = a.analyze("бүгін");
+        let r = results.iter().find(|r| r.pos == Pos::Adverb)
+            .expect("no adverb analysis for 'бүгін'");
+        assert_eq!(r.lemma, "бүгін");
     }
 
 }
