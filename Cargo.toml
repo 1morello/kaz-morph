@@ -2,6 +2,7 @@
 members = [
     "core",
     "cli",
+    "bindings/python",
 ]
 resolver = "2"
 
