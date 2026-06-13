@@ -1,0 +1,14 @@
+[package]
+name = "kaz-morph-python"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "kaz_morph"
+crate-type = ["cdylib"]
+
+[dependencies]
+kaz_morph_core = { package = "kaz-morph", path = "../../core" }
+pyo3 = { version = "0.29", features = ["extension-module"] }
+
