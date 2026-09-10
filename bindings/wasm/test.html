@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>kaz-morph WASM test</title></head>
+<body>
+<h1>kaz-morph</h1>
+<input id="word" value="мектептерімізде" />
+<button onclick="run()">Analyze</button>
+<pre id="out"></pre>
+
+<script type="module">
+import init, { Analyzer } from './pkg/kaz_morph_wasm.js';
+
+let analyzer;
+await init();
+analyzer = new Analyzer();
+
+window.run = () => {
+    const word = document.getElementById('word').value;
+    const results = analyzer.analyze(word);
+    document.getElementById('out').textContent = JSON.stringify(results, null, 2);
+};
+</script>
+</body>
+</html>
