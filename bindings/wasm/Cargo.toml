@@ -1,0 +1,14 @@
+[package]
+name = "kaz-morph-wasm"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+kaz_morph_core = { package = "kaz-morph", path = "../../core" }
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
