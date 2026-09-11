@@ -8,22 +8,35 @@ pub struct Analyzer {
 }
 
 impl Analyzer {
-    /// Create an analyzer with the built-in test lexicon.
+    /// create an analyzer with the built-in test lexicon.
     pub fn new() -> Self {
         Self {
             lexicon: Lexicon::built_in(),
         }
     }
 
-    /// Create an analyzer with a custom lexicon.
+    /// create an analyzer with a custom lexicon.
     pub fn with_lexicon(lexicon: Lexicon) -> Self {
         Self { lexicon }
     }
+    
+    /// create an analyzer with the full Apertium lexicon.
+    pub fn full() -> Self {
+        let data = include_str!("../../data/lexicon/apertium.tsv");
+        let mut lexicon = Lexicon::from_tsv(data);
 
-    /// Analyze a word, returning all possible interpretations.
+        // Add irregular pronoun stems that might not be in Apertium
+        for stem in ["мен", "сен", "ол", "біз", "сіз", "олар"] {
+            lexicon.insert(stem, Pos::Pronoun);
+        }
+
+        Self { lexicon }
+    }
+
+    /// Analyze a word, returning all possible interpretations
     ///
     /// For nouns, strips suffixes right-to-left:
-    /// Case → Possessive → Plural → Root
+    /// Case -> Possessive -> Plural -> Root
     ///
     /// Based on Kessikbayeva Figure 1:
     /// ROOT + [Plural] + [Possessive] + [Case]
@@ -52,7 +65,7 @@ impl Analyzer {
         // 4. try adjective (bare or substantivized)
         self.try_adjective(&word, &mut results);
 
-        // 5. Adverbs — bare lexicon lookup only
+        // 5. Adverbs; bare lexicon lookup only
         if let Some(entries) = self.lexicon.lookup(&word) {
             for e in entries {
                 if e.pos == Pos::Adverb {

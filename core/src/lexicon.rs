@@ -163,6 +163,44 @@ impl Lexicon {
 
         lex
     }
+
+    /// load lexicon from a TSV file (lemma\tPos).
+    ///
+    /// format: one entry per line, tab-separated:
+    ///   алма\tNoun
+    ///   бар\tVerb
+    pub fn from_tsv(data: &str) -> Self {
+        let mut lex = Self::new();
+
+        for line in data.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+
+            let Some((lemma, pos_str)) = line.split_once('\t') else {
+                continue;
+            };
+
+            let pos = match pos_str {
+                "Noun" => Pos::Noun,
+                "Verb" => Pos::Verb,
+                "Adjective" => Pos::Adjective,
+                "Adverb" => Pos::Adverb,
+                "Pronoun" => Pos::Pronoun,
+                "Numeral" => Pos::Numeral,
+                "Conjunction" => Pos::Conjunction,
+                "Postposition" => Pos::Postposition,
+                "Particle" => Pos::Particle,
+                "Interjection" => Pos::Interjection,
+                _ => continue,
+            };
+
+            lex.insert(lemma, pos);
+        }
+
+        lex
+    }
 }
 
 impl Default for Lexicon {
