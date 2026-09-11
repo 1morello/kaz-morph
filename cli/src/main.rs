@@ -2,7 +2,7 @@ use kaz_morph::Analyzer;
 use std::env;
 
 fn main() {
-    let analyzer = Analyzer::new();
+    let analyzer = Analyzer::full();
     let words: Vec<String> = env::args().skip(1).collect();
 
     if words.is_empty() {
