@@ -137,6 +137,63 @@ pub fn is_consonant(c: char) -> bool {
     classify_consonant(c).is_some()
 }
 
+/// Validate that a suffix variant is compatible with a stem.
+///
+/// Checks two things:
+/// 1. Vowel harmony - suffix vowels must match stem's last vowel group
+/// 2. Consonant harmony - suffix-initial consonant must match stem-final class
+///
+/// Returns true if the combination is phonologically valid.
+pub fn is_valid_suffix(stem: &str, suffix: &str) -> bool {
+    if stem.is_empty() || suffix.is_empty() {
+        return true;
+    }
+
+    // Check vowel harmony: suffix vowels must agree with stem's vowel group
+    if let Some(stem_group) = vowel_group(stem) {
+        if let Some(suffix_group) = vowel_group(suffix) {
+            // Instrumental -мен/-бен/-пен is always front, skip harmony check
+            if suffix != "мен" && suffix != "бен" && suffix != "пен"
+                && suffix != "менен" && suffix != "бенен" && suffix != "пенен"
+            {
+                if stem_group != suffix_group {
+                    return false;
+                }
+            }
+        }
+    }
+
+    // Check consonant harmony: suffix-initial consonant must match stem-final class
+    let s_end = stem_end(stem);
+    let suffix_first = match suffix.chars().next() {
+        Some(c) => c,
+        None => return true,
+    };
+
+    match suffix_first {
+        // д/т alternation: д after vowels and voiced, т after voiceless
+        'д' => s_end != StemEnd::Voiceless,
+        'т' => s_end == StemEnd::Voiceless,
+
+        // н after vowels (for some suffixes), д/т otherwise
+        'н' => s_end == StemEnd::Vowel || s_end == StemEnd::SonorousOrVoiced,
+
+        // л after vowels, д after voiced, т after voiceless
+        'л' => s_end == StemEnd::Vowel,
+
+        // ғ/г after vowels and voiced, қ/к after voiceless
+        'ғ' | 'г' => s_end != StemEnd::Voiceless,
+        'қ' | 'к' => s_end == StemEnd::Voiceless,
+
+        // м after vowels and voiced, б after some voiced, п after voiceless
+        'м' => s_end == StemEnd::Vowel || s_end == StemEnd::SonorousOrVoiced,
+        'б' => s_end == StemEnd::SonorousOrVoiced,
+        'п' => s_end == StemEnd::Voiceless,
+
+        _ => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,5 +251,42 @@ mod tests {
         assert!(is_consonant('т'));
         assert!(is_consonant('л'));
         assert!(!is_consonant('а'));
+    }
+
+    #[test]
+    fn valid_suffix_vowel_harmony() {
+        // back stem + back suffix
+        assert!(is_valid_suffix("мектеп", "те"));
+        assert!(is_valid_suffix("қала", "да"));
+
+        // back stem + front suffix = invalid
+        assert!(!is_valid_suffix("қала", "де"));
+        assert!(!is_valid_suffix("қала", "те"));
+
+        // front stem + front suffix
+        assert!(is_valid_suffix("мектеп", "тер"));
+        assert!(!is_valid_suffix("мектеп", "тар"));
+    }
+
+    #[test]
+    fn valid_suffix_consonant_harmony() {
+        // voiceless stem + т variant
+        assert!(is_valid_suffix("мектеп", "те"));
+        assert!(!is_valid_suffix("мектеп", "де"));
+
+        // vowel stem + д variant
+        assert!(is_valid_suffix("қала", "да"));
+        assert!(!is_valid_suffix("қала", "та"));
+
+        // voiced stem + д variant
+        assert!(is_valid_suffix("көз", "де"));
+        assert!(!is_valid_suffix("көз", "те"));
+    }
+
+    #[test]
+    fn instrumental_skips_harmony() {
+        // -мен is always front, should pass with any stem
+        assert!(is_valid_suffix("қала", "мен"));
+        assert!(is_valid_suffix("мектеп", "пен"));
     }
 }

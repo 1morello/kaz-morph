@@ -1,9 +1,8 @@
 use crate::types::*;
+use crate::phonology;
 use super::Analyzer;
 
 impl Analyzer {
-    // Nominal suffixes
-
     pub(super) fn strip_case<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Case>)> {
         let table: &[(&[&str], Case)] = &[
             (&["менен", "бенен", "пенен"], Case::Instrumental),
@@ -19,7 +18,7 @@ impl Analyzer {
         for (suffixes, case) in table {
             for sfx in *suffixes {
                 if let Some(stem) = word.strip_suffix(sfx) {
-                    if !stem.is_empty() {
+                    if !stem.is_empty() && phonology::is_valid_suffix(stem, sfx) {
                         results.push((stem, Some(*case)));
                     }
                 }
@@ -42,7 +41,7 @@ impl Analyzer {
         for (suffixes, poss) in table {
             for sfx in *suffixes {
                 if let Some(stem) = word.strip_suffix(sfx) {
-                    if !stem.is_empty() {
+                    if !stem.is_empty() && phonology::is_valid_suffix(stem, sfx) {
                         results.push((stem, Some(*poss)));
                     }
                 }
@@ -57,15 +56,13 @@ impl Analyzer {
         let mut results = Vec::new();
         for sfx in suffixes {
             if let Some(stem) = word.strip_suffix(sfx) {
-                if !stem.is_empty() {
+                if !stem.is_empty() && phonology::is_valid_suffix(stem, sfx) {
                     results.push((stem, Some(Number::Plural)));
                 }
             }
         }
         results
     }
-
-    // Verbal suffixes
 
     pub(super) fn strip_past_definite<'a>(&self, word: &'a str) -> Vec<(&'a str, Option<Tense>)> {
         self.strip_tense_suffix(word, &["ды", "ді", "ты", "ті"], Tense::PastDefinite)
@@ -104,7 +101,7 @@ impl Analyzer {
         let mut results = Vec::new();
         for sfx in suffixes {
             if let Some(stem) = word.strip_suffix(sfx) {
-                if !stem.is_empty() {
+                if !stem.is_empty() && phonology::is_valid_suffix(stem, sfx) {
                     results.push((stem, Some(tense)));
                 }
             }
@@ -118,7 +115,7 @@ impl Analyzer {
         let mut results = Vec::new();
         for sfx in suffixes {
             if let Some(stem) = word.strip_suffix(sfx) {
-                if !stem.is_empty() {
+                if !stem.is_empty() && phonology::is_valid_suffix(stem, sfx) {
                     results.push((stem, true));
                 }
             }
@@ -141,7 +138,7 @@ impl Analyzer {
         for (suffixes, voice) in table {
             for sfx in *suffixes {
                 if let Some(stem) = word.strip_suffix(sfx) {
-                    if !stem.is_empty() {
+                    if !stem.is_empty() && phonology::is_valid_suffix(stem, sfx) {
                         results.push((stem, Some(*voice)));
                     }
                 }
