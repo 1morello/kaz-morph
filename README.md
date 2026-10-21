@@ -26,7 +26,7 @@ use kaz_morph::Analyzer;
 
 let a = Analyzer::new();
 let r = a.analyze("жүректерімізде");
-// → lemma: "жүрек", pos: Noun, number: Plural,
+// -> lemma: "жүрек", pos: Noun, number: Plural,
 //   possession: P1Pl, case: Locative
 ```
 
