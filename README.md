@@ -13,11 +13,11 @@ Kazakh is agglutinative. Grammar is encoded as chains of suffixes on a single ro
   -> "in our hearts"
 ```
 
-For a computer, `жүрек` and `жүректерімізде` are unrelated strings. A spellchecker can't tell whether a five-suffix chain follows vowel harmony or breaks it. On top of that, an NLP pipeline has no idea that `барды`, `бармады`, and `барғандар` are all forms of `бару`.
+For a computer, `жүрек` and `жүректерімізде` are unrelated strings, and a spellchecker can't tell whether a five-suffix chain follows vowel harmony or breaks it. On top of that, an NLP pipeline has no idea that `барды`, `бармады`, and `барғандар` are all forms of `бару`.
 
-Without structural understanding of words, every downstream tool for Kazakh is either broken or faking it.
+I guess without structural understanding of words, every downstream tool for Kazakh is either broken or faking it.
 
-kaz-morph is here to fix this.
+This tool is here to fix this.
 
 ## Usage
 
@@ -32,7 +32,7 @@ let r = a.analyze("жүректерімізде");
 
 ## Status
 
-Early development — setting up the foundation.
+Early development; setting up the foundation.
 
 ## License
 
